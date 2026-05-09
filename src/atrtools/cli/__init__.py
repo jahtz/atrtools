@@ -7,6 +7,8 @@ import logging
 import click
 from rich.logging import RichHandler
 
+from .lineseg import lineseg
+
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -33,6 +35,8 @@ def setup_logging(level: int = 0) -> None:
 )
 def main(ctx, verbosity: int = 0, *args, **kwargs) -> None:
     """
-    Collection of useful ATR and PAGE-XML tools.
+    Collection of useful tools for ATR and PAGE-XML
     """
     setup_logging(verbosity)
+    
+main.add_command(lineseg)

@@ -1,7 +1,7 @@
 [project]
 name = "atrtools"
 version = "0.1.0"
-description = "Collection of useful ATR and PAGE-XML tools"
+description = "Collection of useful tools for ATR and PAGE-XML"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
