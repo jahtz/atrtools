@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
-from math import sqrt
+from math import sqrt, ceil
 from typing import Literal
 
 import cv2
@@ -17,17 +17,27 @@ class imageu:
     Colelction of useful image utility operations
     """
     @staticmethod
-    def show(img: np.ndarray, name: str = '') -> None:
+    def show(img: np.ndarray, name: str = '', height: int | None = None) -> None:
         """
         Display an image using OpenCV's `imshow` function.
         Args:
             img: Input image to display.
             name: Window name. Defaults to ''.
         """
+        if height:
+            h, w = img.shape[:2]
+            scale = height / h
+            new_w = int(w * scale)
+            new_h = int(h * scale)
+            img = cv2.resize(
+                img,
+                (new_w, new_h),
+                interpolation=cv2.INTER_AREA
+            )
         cv2.imshow(name, img)
         cv2.waitKey()
         cv2.destroyAllWindows()
-        
+
     @staticmethod
     def binary_objects(img: np.ndarray) -> list[tuple[slice, ...]]:
         """
@@ -39,42 +49,19 @@ class imageu:
         """
         labels, _ = morphu.label(img)
         return morphu.find_objects(labels)
-        
-    @staticmethod
-    def estimate_glyph_scale(img: np.ndarray) -> int:
-        """
-        Estimate the glyph scale (e.g., font size) based on object areas.
-        Args:
-            img: Input image.
-        Returns:
-            Estimated glyph scale in pixels.
-        """
-        objects = imageu.binary_objects(img)
-        bysize = sorted(objects, key=slu.area)
-        scalemap = np.zeros(img.shape)
-        for o in bysize:
-            if np.amax(scalemap[o]) > 0:
-                continue
-            scalemap[o] = slu.area(o) ** 0.5
-        scalemap = scalemap[(scalemap > 3) & (scalemap < 100)]
-        if np.any(scalemap):
-            return int(np.median(scalemap))
-        else:
-            # empty page (only large h/v-lines or small noise) -> guess! (average 10 pt font: 42 px at 300 DPI)
-            return 42
     
     @staticmethod
-    def estimate_glyph_scale2(
+    def estimate_glyph_scale(
         img: np.ndarray, 
         method: Literal['height', 'width', 'area', 'rms'] = 'rms',
-        default: int = 0
+        default: int = 42
     ) -> int:
         """
         Estimate glyph scale using connected components statistics.
         Args:
             img: Input image.
             method: Method to compute scale. Defaults to 'rms'.
-            default: Default value if no valid objects are found.. Defaults to 0.
+            default: Default value if no valid objects are found. Defaults to 0.
         Returns:
             Estimated glyph scale in pixels.
         """
@@ -98,7 +85,27 @@ class imageu:
                 s.append(h * w)
             else:
                 s.append(int(sqrt(h * w)))
-        return np.median(np.array(s))
+        values = np.array(s)
+        if np.any(values):
+            return ceil(np.median(values))
+        return default
+    
+    def estimate_page_scale(img: np.ndarray, default: tuple[int, int] = (25, 25)) -> tuple[int, int]:
+        """
+        Estimates the median contour size from an image or region.
+        Args:
+            image: The binary image (may be masked) to calculate the scale from.
+        Returns:
+            The median contour size, calculated from the biggest 50% of the contours (for noise removal).
+        """
+        _, _, stats, _ = cv2.connectedComponentsWithStats(img, connectivity=8)
+        if len(stats) > 1:  # stats[0] is the background
+            widths = sorted(stats[1:, 2], reverse=True)
+            heights = sorted(stats[1:, 3], reverse=True)
+            avg_width = np.median(widths[:ceil(len(widths) * 0.5)])
+            avg_height = np.median(heights[:ceil(len(heights) * 0.5)])
+            return ceil(avg_width), ceil(avg_height)
+        return default
 
     @staticmethod
     def midrange(img: np.ndarray, frac: float = 0.5) -> float:

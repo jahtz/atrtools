@@ -7,7 +7,7 @@ import numpy as np
 # Forked from https://github.com/bertsky/ocrd_cis/blob/5cf22f5baa093ffaf0049e3c9756094116273598/
 class slu:
     """
-    Utilities for lists of slices, treating them like rectangles
+    Utilities for tuples of slices, treating them like rectangles
     """
     @staticmethod
     def dim0(s: tuple[slice, ...]) -> int:

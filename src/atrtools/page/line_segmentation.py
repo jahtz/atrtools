@@ -5,12 +5,15 @@ from concurrent.futures import ThreadPoolExecutor
 from itertools import combinations, chain
 import logging
 from os import PathLike
+from pathlib import Path
 from typing import Literal
 
+import click
 import cv2
 import networkx as nx
 import numpy as np
 from pypxml import PageXML, PageType, PageElement
+from rich.progress import Progress, TextColumn, BarColumn, MofNCompleteColumn, TimeElapsedColumn, TimeRemainingColumn
 from scipy.ndimage import gaussian_filter, uniform_filter, maximum_filter, center_of_mass, find_objects, shift
 from scipy.sparse.csgraph import minimum_spanning_tree
 from shapely import set_precision
@@ -19,14 +22,14 @@ from shapely.ops import unary_union, nearest_points
 from shapely.validation import explain_validity
 from skimage import draw
 
-from .util import imageu, morphu, npu, pageu, slu
+from ..util import clicku, imageu, morphu, npu, pageu, slu
 
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 
 # Forked from https://github.com/bertsky/ocrd_cis/blob/5cf22f5baa093ffaf0049e3c9756094116273598/
-class LineSegmenter:
+class LineSegmentation:
     def __init__(self, spread: float = 2.4, threads: int = 1) -> None:
         """
         Args:
@@ -35,8 +38,8 @@ class LineSegmenter:
                     Defaults to 2.4.
             threads: Number of threads for parallel region computation. Defaults to 1.
         """
-        self.spread: float = spread
-        self.threads: int = max(1, threads)
+        self.spread = spread
+        self.threads = max(1, threads)
         
     def process(self, img: PathLike | np.ndarray, xml: PathLike | PageXML) -> PageXML:
         """
@@ -88,7 +91,7 @@ class LineSegmenter:
             logger.info(f'Removed {len(textlines)} lines in {region.pagetype.value} {region["id"]}')
         
         clipped_img, x_offset, y_offset = imageu.clip_polygon(img, region_polygon)
-        clipped_region = npu.shift_polygon(region_polygon, -x_offset, -y_offset)
+        clipped_region = pageu.shift_polygon(region_polygon, -x_offset, -y_offset)
         
         if clipped_img.size == 0:
             logger.warning(f'Invalid region after clipping in {region.pagetype.value} {region["id"]}')
@@ -126,7 +129,7 @@ class LineSegmenter:
         lid = 0
         for llabel, poly, baseline in line_polys:
             line_polygon = np.array(poly, dtype=np.float32)
-            line_polygon = npu.shift_polygon(
+            line_polygon = pageu.shift_polygon(
                 line_polygon, 
                 x_offset, y_offset, 
                 upper=self.shape[::-1]
@@ -141,7 +144,7 @@ class LineSegmenter:
             
             if baseline:
                 line_baseline = np.array(baseline, dtype=np.float32)
-                line_baseline = npu.shift_polygon(
+                line_baseline = pageu.shift_polygon(
                     line_baseline, 
                     x_offset, y_offset, 
                     upper=self.shape[::-1]
@@ -471,7 +474,7 @@ class LineSegmenter:
         bt: bool = False,
     ) -> tuple[np.ndarray, list[np.ndarray]]:
         logger.debug('Estimating glyph scale')
-        scale = imageu.estimate_glyph_scale(img)
+        scale = imageu.estimate_glyph_scale(img, 'rms', 42)
         if seps is not None and not seps.all():
             # suppress separators/images for line estimation (unless it encompasses the full image for some reason)
             img = (1 - seps) * img
@@ -797,3 +800,93 @@ class LineSegmenter:
         if not interp:
             return None
         return interp.exterior.coords[:-1]  # keep open
+
+
+@click.command('line-segmentation', short_help='Compute baselines and polygons for existing TextRegions')
+@click.help_option('--help', hidden=True)
+@click.argument(
+    'xmls', 
+    type=click.Path(), 
+    callback=clicku.callback_glob, 
+    nargs=-1, 
+    required=True
+)
+@click.option(
+    '-i', '--image', 'image_suffix',
+    help='Full suffix of the image files to be used. If not set, the suffix is derived from the PAGE-XML files.',
+    type=click.STRING
+)
+@click.option(
+    '-o', '--output',
+    help='Output directory for generated PAGE-XML files. If omitted, the input file will be overwritten.',
+    type=click.Path(file_okay=False, path_type=Path)
+)
+@click.option(
+    '-s', '--spread',
+    help='Distance in points (pt) from the foreground to project text line (or text region) labels into the '
+         'background for polygonal contours; If zero, project half a scale/capheight.',
+    type=click.FloatRange(0.0),
+    default=0.0,
+    show_default=True,
+)
+@click.option(
+    '-t', '--threads',
+    help='Number of threads for concurrent region processing',
+    type=click.IntRange(1),
+    default=1,
+    show_default=True
+)
+def line_segmentation(
+    xmls: list[Path],
+    image_suffix: str | None,
+    output: Path | None,
+    spread: float, 
+    threads: int
+) -> None:
+    """
+    Compute baselines and polygons for existing TextRegions in PAGE-XML files.
+    
+    Only binary image inputs are supported!
+
+    XMLs: One or more PAGE-XML paths. Use glob patterns in quotes to process multiple files.
+    """
+    if not xmls:
+        raise click.BadArgumentUsage('No input PAGE-XML files found')
+    if output is not None:
+        output.mkdir(exist_ok=True, parents=True)
+        
+    with Progress(
+        BarColumn(bar_width=30),
+        MofNCompleteColumn(),
+        TimeElapsedColumn(),
+        TimeRemainingColumn(),
+        TextColumn('[progress.description]{task.description}'),
+    ) as progress:
+        load_task = progress.add_task('Loading module', total=None)        
+        pairs: list[tuple[Path, Path]] = []
+        for xml in xmls:
+            img = clicku.find_page_image_pairs(xml, image_suffix)#
+            if img is None:
+                logger.error(f'No matching image found for PAGE-XML: {xml}')
+            else:
+                logger.debug(f'Found image {img} for PAGE-XML {xml}')
+                pairs.append((xml, img))
+        
+        if not pairs:
+            raise click.BadArgumentUsage('No files to process')
+        
+        segmenter = LineSegmentation(spread, threads)
+        progress.remove_task(load_task)
+        
+        task = progress.add_task('Processing images', total=len(pairs))
+        for xml, img in pairs:
+            progress.update(task, description='/'.join(xml.parts[-4:]))
+            logger.info(f'Processing: {xml} and {img}')
+            try:
+                out_dir: Path = output or xml.parent
+                out_path: Path = out_dir / f'{xml.name.split(".")[0]}.xml'
+                segmenter.process(img, xml).save(out_path)
+            except Exception as exc:
+                logger.error(f'Processing failed for {xml}: {exc}')
+            progress.advance(task)
+        progress.update(task, description='Done')

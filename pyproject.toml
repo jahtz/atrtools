@@ -34,7 +34,7 @@ Documentation = "https://github.com/jahtz/atrtools#readme"
 Issues = "https://github.com/jahtz/atrtools/issues"
 
 [project.scripts]
-atrtools = "atrtools.cli:main"
+page = "atrtools.page:main"
 
 [build-system]
 requires = ["setuptools>=61"]

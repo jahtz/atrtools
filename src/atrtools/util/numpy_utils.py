@@ -46,27 +46,3 @@ class npu:
         """
         (res,) = np.nonzero(np.ravel(condition))
         return res
-
-    @staticmethod
-    def shift_polygon(
-        poly: np.ndarray, 
-        x_offset: int, 
-        y_offset: int, 
-        upper: tuple[int, int] | None = None,
-        lower: tuple[int, int] = (0, 0)
-    ) -> np.ndarray:
-        """
-        Shift a polygon by given x and y offsets, optionally clipping to bounds.
-        Args:
-            poly: Polygon coordinates as a 2D array of shape (N, 2).
-            x_offset: X-axis offset.
-            y_offset: Y-axis offset.
-            upper: Upper bounds for clipping.
-            lower: Lower bounds for clipping.
-        Returns:
-            Shifted and optionally clipped polygon.
-        """
-        shifted = poly + [x_offset, y_offset]
-        if upper is not None: 
-            shifted = np.clip(shifted, list(lower), list(upper))
-        return shifted
