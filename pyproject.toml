@@ -1,41 +1,30 @@
-[project]
-name = "atrtools"
-version = "0.1.0"
-description = "Collection of useful tools for ATR and PAGE-XML"
-readme = "README.md"
-license = "Apache-2.0"
-license-files = ["LICENSE"]
-authors = [
-    { name = "janikhtz", email = "dev@janikhtz.de" }
-]
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "Topic :: Scientific/Engineering :: Image Processing",
-    "Intended Audience :: Science/Research",
-    "Environment :: Console",
-]
-
-requires-python = ">=3.11"
-dependencies = [
-    "click>=8.3.3",
-    "networkx>=3.6.1",
-    "opencv-python>=4.13.0.92",
-    "pypxml>=5.1.0",
-    "rich>=15.0.0",
-    "scikit-image>=0.26.0",
-    "scipy>=1.17.1",
-    "shapely>=2.1.2",
-]
-
-[project.urls]
-Homepage = "https://www.uni-wuerzburg.de/zpd/"
-Repository = "https://github.com/jahtz/atrtools"
-Documentation = "https://github.com/jahtz/atrtools#readme"
-Issues = "https://github.com/jahtz/atrtools/issues"
-
-[project.scripts]
-page = "atrtools.page:main"
-
 [build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "ATRtools"
+version = "0.1.0"
+description = "Collection of useful tools for ATR and PAGE-XML"
+readme = "README.md"
+license-files = ["LICENSE"]
+authors = [
+    { name = "jahtz", email = "dev@janikhtz.de" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "click>=8.5.0",
+    "networkx>=3.6.1",
+    "numpy>=2.5.3",
+    "opencv-python>=5.0.0.93",
+    "pypxml>=5.1.0",
+    "rich>=15.0.0",
+    "scikit-image>=0.26.0",
+    "shapely>=2.1.2",
+]
+
+[project.scripts]
+atrtools = "atrtools:cli"
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2
