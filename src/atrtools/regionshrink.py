@@ -186,11 +186,12 @@ class RegionShrink:
             coords_element['points'] = PageUtils.polygon_to_points(np.array(polygon.exterior.coords, dtype=np.int32))
 
 
-@click.command('regionshrink')
+@click.command('regionshrink', short_help='Shrink existing regions.')
+@click.help_option('-h', '--help', hidden=True)
 @click.argument('xml', type=click.Path(), callback=ClickUtils.glob, nargs=-1)
 @click.option(
     '-i', '--image',
-    help='Full suffix of the image files to be used. Defaults to the first image found with "<filename>.*png"',
+    help='Full suffix of the image files to be used. Defaults to the first image found with "<filename>.*png".',
     type=click.STRING
 )
 @click.option(
@@ -241,7 +242,7 @@ class RegionShrink:
 )
 @click.option(
     '-t', '--threads',
-    help='Number of threads for concurrent region processing',
+    help='Number of threads for concurrent region processing.',
     type=click.IntRange(1),
     default=1,
     show_default=True

@@ -816,11 +816,12 @@ class LineSegmentation:
         return interp.exterior.coords[:-1]  # keep open
 
 
-@click.command('linesegmentation')
+@click.command('linesegmentation', short_help='Compute baselines and polygons.')
+@click.help_option('-h', '--help', hidden=True)
 @click.argument('xml', type=click.Path(), callback=ClickUtils.glob, nargs=-1)
 @click.option(
     '-i', '--image',
-    help='Full suffix of the image files to be used. Defaults to the first image found with "<filename>.*png"',
+    help='Full suffix of the image files to be used. Defaults to the first image found with "<filename>.*png".',
     type=click.STRING
 )
 @click.option(
@@ -838,7 +839,7 @@ class LineSegmentation:
 )
 @click.option(
     '-t', '--threads',
-    help='Number of threads for concurrent region processing',
+    help='Number of threads for concurrent region processing.',
     type=click.INT,
     default=1,
     show_default=True
