@@ -11,7 +11,7 @@ license-files = ["LICENSE"]
 authors = [
     { name = "jahtz", email = "dev@janikhtz.de" }
 ]
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 dependencies = [
     "click>=8.5.0",
     "networkx>=3.6.1",
