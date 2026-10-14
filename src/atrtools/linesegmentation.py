@@ -105,11 +105,9 @@ class LineSegmentation:
             logger.warning(f'Could not find coordinates in {region.pagetype.value} {region["id"]}')
             return
         
-        textlines: list[PageElement] = list(region.find_all(pagetype=PageType.TextLine))
-        for textline in textlines:
-            textline.delete()
-        if textlines:
-            logger.info(f'Removed {len(textlines)} lines in {region.pagetype.value} {region["id"]}')
+        for element in region.elements:
+            if element.pagetype not in (PageType.AlternativeImage, PageType.Coords, PageType.UserDefined, PageType.Labels, PageType.Roles):
+                element.delete()
         
         clipped_img, x_offset, y_offset = ImageUtils.clip_polygon(img, region_polygon)
         clipped_region = PageUtils.shift_polygon(region_polygon, -x_offset, -y_offset)
