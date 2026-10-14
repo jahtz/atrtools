@@ -99,6 +99,49 @@ class LineSegmentation:
                     executor.submit(self.__process_region, img, region)
         return xml
     
+    def process_regions(self, img: PathLike | np.ndarray, xml: PathLike | PageXML, rids: list[str]) -> PageXML:
+        """
+        Compute baselines and polygons for selected TextRegions in a PAGE-XML file.
+        Args:
+            img: Binary iNpUtilt image.
+            xml: PageXML object containing annotated TextRegions.
+            rids: List of region IDs to compute.
+        Raises:
+            ValueError: Invalid iNpUtilts
+        Returns:
+            The iNpUtilt PageXML object containing the computed TextLines
+        """
+        if isinstance(img, PathLike):
+            img: np.ndarray | None = cv2.imread(str(img), cv2.IMREAD_GRAYSCALE)
+            if img is None:
+                raise ValueError(f'Could not open image at {img!s}')
+        img: np.ndarray = ~img
+        if len(np.unique(img)) > 2:
+            raise ValueError('Image is not binary')
+        
+        self.shape: tuple[int, int] = img.shape
+        if len(self.shape) != 2 or not self.shape[0] or not self.shape[0]:
+            raise ValueError(f'Invalid image shape: {self.shape}')
+        logger.info(f'Image dimensions: {self.shape[0]}x{self.shape[1]}')
+        
+        if isinstance(xml, PathLike):
+            xml: PageXML = PageXML.open(str(xml))
+        
+        regions = []
+        for rid in rids:
+            region = xml.find(id=rid)
+            if region is not None and region.pagetype == PageType.TextRegion:
+                regions.append(region)
+        
+        if self.threads == 1:
+            for region in regions:
+                self.__process_region(img, region)
+        else:
+            with ThreadPoolExecutor(max_workers=self.threads, thread_name_prefix='lineseg') as executor:
+                for region in regions:
+                    executor.submit(self.__process_region, img, region)
+        return xml
+    
     def __process_region(self, img: np.ndarray, region: PageElement) -> None:
         region_polygon: np.ndarray | None = PageUtils.element_to_polygon(region)
         if region_polygon is None:
